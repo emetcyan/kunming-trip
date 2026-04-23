@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>昆明五一劳动节出游行程规划</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --primary: #2D5A3D;
+            --primary-light: #4A8C5F;
+            --accent: #D4A574;
+            --bg: #F7F5F0;
+            --card: #FFFFFF;
+            --text: #333333;
+            --text-light: #666666;
+            --hotel: #10B981;
+            --food: #EF4444;
+            --sight: #3B82F6;
+            --airport: #8B5CF6;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --radius: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1a3c2a 0%, #2D5A3D 50%, #3d7a52 100%);
+            color: white;
+            padding: 60px 20px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.3;
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+        .hero h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 12px; letter-spacing: 2px; }
+        .hero .subtitle { font-size: 1.1rem; opacity: 0.9; margin-bottom: 24px; }
+        .hero-meta {
+            display: inline-flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+            background: rgba(255,255,255,0.12); padding: 12px 28px; border-radius: 50px;
+            backdrop-filter: blur(10px); font-size: 0.95rem;
+        }
+        .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+        /* Nav */
+        .nav-bar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            padding: 0 20px;
+        }
+        .nav-inner { max-width: 1000px; margin: 0 auto; display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; }
+        .nav-inner a {
+            white-space: nowrap; padding: 8px 18px; border-radius: 20px;
+            text-decoration: none; color: var(--text-light); font-size: 0.9rem;
+            transition: all 0.2s; border: 1px solid transparent;
+        }
+        .nav-inner a:hover, .nav-inner a.active {
+            background: var(--primary); color: white; border-color: var(--primary);
+        }
+
+        /* Container */
+        .container { max-width: 1000px; margin: 0 auto; padding: 32px 20px; }
+
+        /* Overview Map Section */
+        .overview-section { margin-bottom: 48px; }
+        .section-title {
+            font-size: 1.5rem; font-weight: 700; color: var(--primary);
+            margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+        }
+        .section-title .icon { font-size: 1.3rem; }
+        .map-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); overflow: hidden;
+        }
+        .map-container { height: 420px; width: 100%; }
+        .map-legend {
+            display: flex; gap: 20px; padding: 12px 20px; flex-wrap: wrap;
+            background: #fafafa; border-top: 1px solid #eee; font-size: 0.85rem;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* Day Card */
+        .day-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); margin-bottom: 40px; overflow: hidden;
+        }
+        .day-header {
+            padding: 24px 28px 16px; border-bottom: 1px solid #f0f0f0;
+            display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;
+        }
+        .day-header h2 { font-size: 1.4rem; color: var(--primary); }
+        .day-header .day-tag {
+            background: var(--accent); color: white; padding: 4px 14px;
+            border-radius: 12px; font-size: 0.8rem; font-weight: 600;
+        }
+        .day-header .day-date { color: var(--text-light); font-size: 0.9rem; margin-top: 4px; }
+
+        .day-body { padding: 24px 28px; }
+        .day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+        @media (max-width: 768px) { .day-grid { grid-template-columns: 1fr; } }
+
+        .day-map { height: 360px; border-radius: 12px; overflow: hidden; border: 1px solid #eee; }
+
+        /* Timeline */
+        .timeline { position: relative; padding-left: 24px; }
+        .timeline::before {
+            content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px;
+            width: 2px; background: linear-gradient(to bottom, var(--primary-light), var(--accent));
+            border-radius: 2px;
+        }
+        .t-item { position: relative; margin-bottom: 22px; }
+        .t-item:last-child { margin-bottom: 0; }
+        .t-dot {
+            position: absolute; left: -22px; top: 5px; width: 14px; height: 14px;
+            border-radius: 50%; background: white; border: 3px solid var(--primary-light);
+        }
+        .t-time { font-size: 0.8rem; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
+        .t-title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+        .t-desc { font-size: 0.9rem; color: var(--text-light); }
+        .t-tag {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+            margin-top: 6px; font-weight: 500;
+        }
+        .tag-food { background: #fee2e2; color: #991b1b; }
+        .tag-sight { background: #dbeafe; color: #1e40af; }
+        .tag-hotel { background: #d1fae5; color: #065f46; }
+        .tag-trans { background: #f3f4f6; color: #374151; }
+        .tag-tip { background: #fef3c7; color: #92400e; }
+
+        /* Tips Section */
+        .tips-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px; margin-top: 16px;
+        }
+        .tip-card {
+            background: #fafafa; border-radius: 12px; padding: 18px;
+            border-left: 4px solid var(--accent);
+        }
+        .tip-card h4 { font-size: 0.95rem; color: var(--primary); margin-bottom: 6px; }
+        .tip-card p { font-size: 0.88rem; color: var(--text-light); }
+
+        /* Table */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 12px; }
+        .data-table th { text-align: left; padding: 12px; background: #f8f9fa; font-weight: 600; color: var(--primary); }
+        .data-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .data-table tr:hover td { background: #fafafa; }
+
+        /* Footer */
+        .footer {
+            text-align: center; padding: 40px 20px; color: var(--text-light); font-size: 0.85rem;
+        }
+
+        /* Custom popup */
+        .leaflet-popup-content { margin: 8px 12px; font-size: 0.85rem; }
+        .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+    </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+    <div class="hero-content">
+        <h1>🌿 昆明五一出游行程规划</h1>
+        <div class="subtitle">春城四日慢游记 · 人文与自然交织</div>
+        <div class="hero-meta">
+            <span>✈️ 5月2日 – 5月5日</span>
+            <span>📍 北京 ⇄ 昆明</span>
+            <span>👫 1-2人自由行</span>
+        </div>
+    </div>
+</div>
+
+<!-- Nav -->
+<div class="nav-bar">
+    <div class="nav-inner">
+        <a href="#overview" class="active">总览地图</a>
+        <a href="#day1">Day 1 抵达·老城</a>
+        <a href="#day2">Day 2 博物·滇池</a>
+        <a href="#day3">Day 3 植物·美食</a>
+        <a href="#day4">Day 4 返程</a>
+        <a href="#foodlist">美食清单</a>
+        <a href="#tips">实用贴士</a>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- Overview Map -->
+<section class="overview-section" id="overview">
+    <div class="section-title"><span class="icon">🗺️</span> 行程总览地图</div>
+    <div class="map-card">
+        <div id="map-overview" class="map-container"></div>
+        <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--hotel)"></div> 酒店</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--sight)"></div> 景点</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--food)"></div> 美食</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--airport)"></div> 机场</div>
+        </div>
+    </div>
+</section>
+
+<!-- Day 1 -->
+<section class="day-card" id="day1">
+    <div class="day-header">
+        <div>
+            <span class="day-tag">Day 1</span>
+            <h2>抵达昆明 · 老城人文之旅</h2>
+            <div class="day-date">5月2日（周六）北京大兴 ✈️ 昆明长水</div>
+        </div>
+    </div>
+    <div class="day-body">
+        <div class="day-grid">
+            <div class="timeline">
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">11:00 – 12:00</div>
+                    <div class="t-title">机场 → 市区酒店</div>
+                    <div class="t-desc">地铁6号线转2号线约50分钟；或打车约40分钟（80–100元）。推荐入住全季酒店（南屏步行街北京路店）。</div>
+                    <span class="t-tag tag-hotel">酒店</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">12:30</div>
+                    <div class="t-title">午餐：从水炉 · 普洱生态菜馆（南强店）</div>
+                    <div class="t-desc">位于南强街，从酒店步行约10分钟。推荐普洱生态菜系列。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">14:30 – 16:00</div>
+                    <div class="t-title">云南陆军讲武堂历史博物馆</div>
+                    <div class="t-desc">地址：翠湖西路22号。黄色民国建筑群，极具历史感，建议游览1–1.5小时。<strong>16:00停止入馆</strong>。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">16:00 – 18:00</div>
+                    <div class="t-title">翠湖公园漫步</div>
+                    <div class="t-desc">讲武堂紧邻翠湖西门，步行即达。免费入园，湖光柳影，适合拍照。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">18:00</div>
+                    <div class="t-title">晚餐：旮旯食堂（南屏街店）</div>
+                    <div class="t-desc">推荐招牌佐料牛肉、傣香牛肉、干巴洋芋丝。饭后可步行逛南屏步行街、昆明老街。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+            </div>
+            <div>
+                <div id="map-day1" class="day-map"></div>
+                <div style="margin-top:10px; font-size:0.82rem; color:#888; text-align:center;">Day 1 路线：机场 → 酒店 → 南强街 → 讲武堂 → 翠湖 → 南屏街</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Day 2 -->
+<section class="day-card" id="day2">
+    <div class="day-header">
+        <div>
+            <span class="day-tag" style="background:#3B82F6">Day 2</span>
+            <h2>博物滇池 · 古镇风情</h2>
+            <div class="day-date">5月3日（周日）</div>
+        </div>
+    </div>
+    <div class="day-body">
+        <div class="day-grid">
+            <div class="timeline">
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">09:00 – 12:00</div>
+                    <div class="t-title">云南省博物馆</div>
+                    <div class="t-desc">地址：官渡区广福路6393号。地铁1号线至星耀路站，或打车约30分钟。<strong>需提前预约</strong>，馆藏古滇国青铜器、南诏大理国文物等。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">12:00 – 13:30</div>
+                    <div class="t-title">官渡古镇逛吃 + 午餐</div>
+                    <div class="t-desc">博物馆与官渡古镇相邻，步行可达。可尝官渡粑粑、豌豆粉。<br><strong>正餐可选：</strong>俏香傣（吴井路店）或铁锅蛋（铁三中对面，官渡区）。</div>
+                    <span class="t-tag tag-food">美食</span>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">15:00 – 17:00</div>
+                    <div class="t-title">海埂大坝观滇池</div>
+                    <div class="t-desc">免费开放。五月海鸥虽少，但滇池风光依旧壮阔，可远眺西山睡美人。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">17:00 – 18:00</div>
+                    <div class="t-title">海洪湿地漫步</div>
+                    <div class="t-desc">位于海埂大坝东侧，水杉湿地景观，沿木栈道散步。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">18:30</div>
+                    <div class="t-title">晚餐：老周烧烤（明通路店）</div>
+                    <div class="t-desc">地址：明通路（昆明站附近）。从海埂大坝返回市区顺路，打车约25分钟。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+            </div>
+            <div>
+                <div id="map-day2" class="day-map"></div>
+                <div style="margin-top:10px; font-size:0.82rem; color:#888; text-align:center;">Day 2 路线：酒店 → 省博/官渡古镇 → 海埂大坝/海洪湿地 → 明通路</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Day 3 -->
+<section class="day-card" id="day3">
+    <div class="day-header">
+        <div>
+            <span class="day-tag" style="background:#10B981">Day 3</span>
+            <h2>植物自然 · 市井美食</h2>
+            <div class="day-date">5月4日（周一）博物馆闭馆日</div>
+        </div>
+    </div>
+    <div class="day-body">
+        <div class="day-grid">
+            <div class="timeline">
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">09:00 – 12:00</div>
+                    <div class="t-title">昆明植物园</div>
+                    <div class="t-desc">地址：盘龙区蓝黑路132号。地铁2号线至龙头街站再打车，或全程打车约30–40分钟。门票约10元，五月植被茂盛。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">12:30</div>
+                    <div class="t-title">午餐：新迎传统豆花米线 + 南华街卤面</div>
+                    <div class="t-desc">两店均在新迎片区，从植物园南下约20–25分钟。<br>豆花米线在新迎小区/东华街道；南华卤面新迎店在田园路东华农贸市场外5–6号。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">15:00 – 17:00</div>
+                    <div class="t-title">昆明动物园 / 圆通山</div>
+                    <div class="t-desc">地址：青年路。门票约20元。绿树成荫，适合休闲漫步。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">17:00 – 18:00</div>
+                    <div class="t-title">加餐：新世界过桥米线</div>
+                    <div class="t-desc">地址：青年路87号（圆通山动物园门口）。三十年老店，游览结束后直接品尝。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">19:00</div>
+                    <div class="t-title">晚餐：太小食堂（同德店）或 旮旯食堂（同德店）</div>
+                    <div class="t-desc">地铁2号线至白云路站/北辰站，步行至同德昆明广场。推荐傣味牛肉、飞天空心菜。</div>
+                    <span class="t-tag tag-food">美食</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">20:30</div>
+                    <div class="t-title">同德昆明广场夜游</div>
+                    <div class="t-desc">北市区核心商圈，购物休闲，感受昆明夜生活。</div>
+                    <span class="t-tag tag-sight">景点</span>
+                </div>
+            </div>
+            <div>
+                <div id="map-day3" class="day-map"></div>
+                <div style="margin-top:10px; font-size:0.82rem; color:#888; text-align:center;">Day 3 路线：酒店 → 植物园 → 新迎 → 圆通山 → 同德广场</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Day 4 -->
+<section class="day-card" id="day4">
+    <div class="day-header">
+        <div>
+            <span class="day-tag" style="background:#8B5CF6">Day 4</span>
+            <h2>返程回京</h2>
+            <div class="day-date">5月5日（周二）昆明长水 ✈️ 北京大兴</div>
+        </div>
+    </div>
+    <div class="day-body">
+        <div class="day-grid">
+            <div class="timeline">
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">05:30</div>
+                    <div class="t-title">起床，退房</div>
+                    <div class="t-desc">前一晚提前收拾行李，可让酒店前台协助预约送机车辆。</div>
+                    <span class="t-tag tag-tip">提醒</span>
+                </div>
+                <div class="t-item">
+                    <div class="t-dot"></div>
+                    <div class="t-time">06:00</div>
+                    <div class="t-title">前往昆明长水机场</div>
+                    <div class="t-desc">打车约40分钟（80–100元）；或地铁6号线约35分钟。早班机建议打车更稳妥。</div>
+                    <span class="t-tag tag-trans">交通</span>
+                </div>
+            </div>
+            <div>
+                <div id="map-day4" class="day-map"></div>
+                <div style="margin-top:10px; font-size:0.82rem; color:#888; text-align:center;">Day 4 路线：酒店 → 长水机场</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Food List -->
+<section class="day-card" id="foodlist" style="margin-bottom: 24px;">
+    <div class="day-header" style="border-bottom: none; padding-bottom: 8px;">
+        <div>
+            <span class="day-tag" style="background:var(--food)">美食</span>
+            <h2>美食打卡清单</h2>
+        </div>
+    </div>
+    <div class="day-body" style="padding-top: 8px;">
+        <table class="data-table">
+            <thead>
+                <tr><th>店铺名称</th><th>地址</th><th>推荐菜品</th><th>安排日期</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>从水炉·普洱生态菜馆</td><td>南强街（南强店）</td><td>普洱生态菜系列</td><td>Day 1 午餐</td></tr>
+                <tr><td>旮旯食堂</td><td>南屏街店</td><td>佐料牛肉、傣香牛肉</td><td>Day 1 晚餐</td></tr>
+                <tr><td>俏香傣</td><td>吴井路店</td><td>傣味菜肴</td><td>Day 2 午餐</td></tr>
+                <tr><td>铁锅蛋</td><td>铁三中对面（官渡区）</td><td>铁锅蛋</td><td>Day 2 备选</td></tr>
+                <tr><td>老周烧烤</td><td>明通路店</td><td>烧烤</td><td>Day 2 晚餐</td></tr>
+                <tr><td>新迎传统豆花米线</td><td>新迎小区/东华街道</td><td>豆花米线</td><td>Day 3 午餐</td></tr>
+                <tr><td>南华街卤面馆</td><td>田园路东华农贸市场外5–6号</td><td>卤面</td><td>Day 3 午餐</td></tr>
+                <tr><td>新世界过桥米线</td><td>青年路87号（圆通山门口）</td><td>过桥米线</td><td>Day 3 下午</td></tr>
+                <tr><td>太小食堂</td><td>同德悦中心店</td><td>傣味牛肉、飞天空心菜</td><td>Day 3 晚餐</td></tr>
+                <tr><td>旮旯食堂</td><td>同德店（志强路与金江路交叉口）</td><td>云南家常菜</td><td>Day 3 备选</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Sight List -->
+<section class="day-card" style="margin-bottom: 24px;">
+    <div class="day-header" style="border-bottom: none; padding-bottom: 8px;">
+        <div>
+            <span class="day-tag" style="background:var(--sight)">景点</span>
+            <h2>景点打卡清单</h2>
+        </div>
+    </div>
+    <div class="day-body" style="padding-top: 8px;">
+        <table class="data-table">
+            <thead>
+                <tr><th>景点名称</th><th>门票</th><th>开放时间</th><th>安排日期</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>云南陆军讲武堂历史博物馆</td><td>免费（需预约）</td><td>09:00–17:00（16:00停止入馆，周一闭馆）</td><td>Day 1</td></tr>
+                <tr><td>翠湖公园</td><td>免费</td><td>全天</td><td>Day 1</td></tr>
+                <tr><td>云南省博物馆</td><td>免费（需预约）</td><td>09:00–17:00（16:30停止入馆，周一闭馆）</td><td>Day 2</td></tr>
+                <tr><td>官渡古镇</td><td>免费</td><td>全天</td><td>Day 2</td></tr>
+                <tr><td>海埂大坝</td><td>免费</td><td>全天</td><td>Day 2</td></tr>
+                <tr><td>海洪湿地</td><td>免费</td><td>全天</td><td>Day 2</td></tr>
+                <tr><td>昆明植物园</td><td>约10元</td><td>08:00–18:00</td><td>Day 3</td></tr>
+                <tr><td>昆明动物园（圆通山）</td><td>约20元</td><td>09:00–17:00</td><td>Day 3</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Hotel -->
+<section class="day-card" style="margin-bottom: 24px;">
+    <div class="day-header" style="border-bottom: none; padding-bottom: 8px;">
+        <div>
+            <span class="day-tag" style="background:var(--hotel)">住宿</span>
+            <h2>华住会酒店推荐</h2>
+        </div>
+    </div>
+    <div class="day-body" style="padding-top: 8px;">
+        <div class="tips-grid">
+            <div class="tip-card" style="border-left-color: var(--hotel);">
+                <h4>🏆 首选：全季酒店（昆明南屏步行街北京路店）</h4>
+                <p>盘龙区拓东路4号。市中心核心地段，步行10分钟到南屏步行街、南强街；地铁2号线/3号线东风广场站附近，去各景点均有覆盖。参考价 350–500元/晚。</p>
+            </div>
+            <div class="tip-card" style="border-left-color: var(--hotel);">
+                <h4>全季酒店（昆明翠湖人民中路店）</h4>
+                <p>五华区人民中路。距离翠湖、讲武堂、圆通山极近，适合喜欢晨起散步的旅客。参考价 350–500元/晚。</p>
+            </div>
+            <div class="tip-card" style="border-left-color: var(--hotel);">
+                <h4>汉庭酒店（昆明翠湖潘家湾地铁站店）</h4>
+                <p>五华区东风西路241号。经济型选择，紧邻地铁3号线潘家湾站，性价比高。参考价 250–380元/晚。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Tips -->
+<section class="day-card" id="tips">
+    <div class="day-header" style="border-bottom: none; padding-bottom: 8px;">
+        <div>
+            <span class="day-tag" style="background:var(--accent)">贴士</span>
+            <h2>实用贴士</h2>
+        </div>
+    </div>
+    <div class="day-body" style="padding-top: 8px;">
+        <div class="tips-grid">
+            <div class="tip-card">
+                <h4>📅 博物馆预约</h4>
+                <p>陆军讲武堂与云南省博物馆均免费但需提前预约（通过官方微信公众号）。五一假期人流大，建议出发前完成预约。</p>
+            </div>
+            <div class="tip-card">
+                <h4>☀️ 防晒与衣物</h4>
+                <p>昆明紫外线强，五月气温15–26℃，早晚温差大。携带防晒霜、墨镜、薄外套，白天短袖即可。</p>
+            </div>
+            <div class="tip-card">
+                <h4>🚇 交通支付</h4>
+                <p>昆明地铁支持微信/支付宝乘车码；打车用滴滴或高德。无需购买实体公交卡。</p>
+            </div>
+            <div class="tip-card">
+                <h4>🏔️ 高原提示</h4>
+                <p>昆明海拔约1890米，一般无明显高反。初到当天避免剧烈运动，多喝水。</p>
+            </div>
+            <div class="tip-card">
+                <h4>🌶️ 口味提醒</h4>
+                <p>云南菜偏辣偏酸，傣味尤甚。肠胃敏感可提前告知店家调整辣度。</p>
+            </div>
+            <div class="tip-card">
+                <h4>🥮 伴手礼</h4>
+                <p>南屏步行街、昆明老街、同德广场均有嘉华、潘祥记鲜花饼门店，建议返程前一日购买。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+</div>
+
+<div class="footer">
+    祝昆明之旅愉快 🌸 · 行程规划于 2026年4月
+</div>
+
+<script>
+// Icon colors
+const C_HOTEL = '#10B981', C_FOOD = '#EF4444', C_SIGHT = '#3B82F6', C_AIRPORT = '#8B5CF6', C_TRANS = '#9CA3AF';
+
+function createMarker(lat, lng, color, title, popup) {
+    const html = `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`;
+    const icon = L.divIcon({ className: 'custom-marker', html, iconSize: [20, 20], iconAnchor: [10, 10] });
+    return L.marker([lat, lng], { icon }).bindPopup(`<b>${title}</b><br>${popup}`);
+}
+
+// ===== Overview Map =====
+const mapOverview = L.map('map-overview').setView([25.05, 102.70], 11);
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+    attribution: '&copy; 高德地图', subdomains: ['1','2','3','4'], maxZoom: 18
+}).addTo(mapOverview);
+
+// Overview markers
+const overviewPoints = [
+    [25.0456, 102.7040, C_SIGHT, '翠湖公园', '免费 · 全天开放'],
+    [25.0445, 102.7005, C_SIGHT, '陆军讲武堂', '免费 · 09:00-17:00'],
+    [25.1350, 102.7430, C_SIGHT, '昆明植物园', '门票约10元'],
+    [25.0060, 102.6300, C_SIGHT, '海埂大坝', '免费 · 观滇池'],
+    [25.0100, 102.6400, C_SIGHT, '海洪湿地', '免费 · 湿地景观'],
+    [24.9600, 102.7500, C_SIGHT, '官渡古镇', '免费 · 古镇风情'],
+    [24.9580, 102.7550, C_SIGHT, '云南省博物馆', '免费 · 需预约'],
+    [25.0570, 102.7120, C_SIGHT, '昆明动物园/圆通山', '门票约20元'],
+    [25.0380, 102.7150, C_HOTEL, '全季酒店（南屏步行街）', '首选住宿'],
+    [25.0450, 102.7050, C_HOTEL, '全季酒店（翠湖人民中路）', '备选住宿'],
+    [25.0370, 102.7150, C_FOOD, '从水炉（南强店）', '普洱生态菜'],
+    [25.0380, 102.7140, C_FOOD, '旮旯食堂（南屏街店）', '云南家常菜'],
+    [25.0250, 102.7200, C_FOOD, '俏香傣（吴井路店）', '傣味菜肴'],
+    [25.0200, 102.7600, C_FOOD, '铁锅蛋（铁三中对面）', '铁锅蛋'],
+    [25.0240, 102.7190, C_FOOD, '老周烧烤（明通路店）', '烧烤'],
+    [25.0450, 102.7450, C_FOOD, '新迎传统豆花米线', '豆花米线'],
+    [25.0430, 102.7440, C_FOOD, '南华街卤面（新迎店）', '卤面'],
+    [25.0570, 102.7120, C_FOOD, '新世界过桥米线', '过桥米线 · 圆通山门口'],
+    [25.0700, 102.7250, C_FOOD, '太小食堂（同德店）', '傣味牛肉'],
+    [25.0690, 102.7260, C_FOOD, '旮旯食堂（同德店）', '云南家常菜'],
+    [25.1019, 102.9292, C_AIRPORT, '昆明长水机场', ''],
+];
+overviewPoints.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapOverview));
+
+// ===== Day 1 Map =====
+const mapDay1 = L.map('map-day1').setView([25.04, 102.71], 13);
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { attribution: '&copy; 高德地图', subdomains: ['1','2','3','4'], maxZoom: 18 }).addTo(mapDay1);
+const day1Points = [
+    [25.1019, 102.9292, C_AIRPORT, '昆明长水机场', '10:40 抵达'],
+    [25.0380, 102.7150, C_HOTEL, '全季酒店（南屏步行街）', '入住'],
+    [25.0370, 102.7150, C_FOOD, '从水炉（南强店）', '午餐'],
+    [25.0445, 102.7005, C_SIGHT, '陆军讲武堂', '14:30-16:00'],
+    [25.0456, 102.7040, C_SIGHT, '翠湖公园', '16:00-18:00'],
+    [25.0380, 102.7140, C_FOOD, '旮旯食堂（南屏街店）', '晚餐'],
+];
+day1Points.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay1));
+L.polyline(day1Points.map(p => [p[0], p[1]]), { color: '#2D5A3D', weight: 3, opacity: 0.6, dashArray: '8,6' }).addTo(mapDay1);
+
+// ===== Day 2 Map =====
+const mapDay2 = L.map('map-day2').setView([25.01, 102.70], 11);
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { attribution: '&copy; 高德地图', subdomains: ['1','2','3','4'], maxZoom: 18 }).addTo(mapDay2);
+const day2Points = [
+    [25.0380, 102.7150, C_HOTEL, '全季酒店（南屏步行街）', '出发'],
+    [24.9580, 102.7550, C_SIGHT, '云南省博物馆', '09:00-12:00'],
+    [24.9600, 102.7500, C_SIGHT, '官渡古镇', '12:00-13:30 午餐'],
+    [25.0060, 102.6300, C_SIGHT, '海埂大坝', '15:00-17:00'],
+    [25.0100, 102.6400, C_SIGHT, '海洪湿地', '17:00-18:00'],
+    [25.0240, 102.7190, C_FOOD, '老周烧烤（明通路店）', '晚餐'],
+];
+const day2Alt = [
+    [25.0250, 102.7200, C_FOOD, '俏香傣（吴井路店）', '午餐备选'],
+    [25.0200, 102.7600, C_FOOD, '铁锅蛋（铁三中对面）', '午餐备选'],
+];
+day2Points.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay2));
+day2Alt.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay2));
+L.polyline(day2Points.map(p => [p[0], p[1]]), { color: '#3B82F6', weight: 3, opacity: 0.6, dashArray: '8,6' }).addTo(mapDay2);
+
+// ===== Day 3 Map =====
+const mapDay3 = L.map('map-day3').setView([25.06, 102.72], 12);
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { attribution: '&copy; 高德地图', subdomains: ['1','2','3','4'], maxZoom: 18 }).addTo(mapDay3);
+const day3Points = [
+    [25.0380, 102.7150, C_HOTEL, '全季酒店（南屏步行街）', '出发'],
+    [25.1350, 102.7430, C_SIGHT, '昆明植物园', '09:00-12:00'],
+    [25.0450, 102.7450, C_FOOD, '新迎传统豆花米线', '午餐'],
+    [25.0570, 102.7120, C_SIGHT, '昆明动物园/圆通山', '15:00-17:00'],
+    [25.0570, 102.7120, C_FOOD, '新世界过桥米线', '17:00加餐'],
+    [25.0700, 102.7250, C_FOOD, '太小食堂（同德店）', '晚餐'],
+];
+const day3Alt = [
+    [25.0430, 102.7440, C_FOOD, '南华街卤面（新迎店）', '午餐'],
+    [25.0690, 102.7260, C_FOOD, '旮旯食堂（同德店）', '晚餐备选'],
+];
+day3Points.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay3));
+day3Alt.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay3));
+L.polyline(day3Points.map(p => [p[0], p[1]]), { color: '#10B981', weight: 3, opacity: 0.6, dashArray: '8,6' }).addTo(mapDay3);
+
+// ===== Day 4 Map =====
+const mapDay4 = L.map('map-day4').setView([25.06, 102.82], 11);
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { attribution: '&copy; 高德地图', subdomains: ['1','2','3','4'], maxZoom: 18 }).addTo(mapDay4);
+const day4Points = [
+    [25.0380, 102.7150, C_HOTEL, '全季酒店（南屏步行街）', '退房'],
+    [25.1019, 102.9292, C_AIRPORT, '昆明长水机场', '08:00起飞'],
+];
+day4Points.forEach(p => createMarker(p[0], p[1], p[2], p[3], p[4]).addTo(mapDay4));
+L.polyline(day4Points.map(p => [p[0], p[1]]), { color: '#8B5CF6', weight: 3, opacity: 0.6, dashArray: '8,6' }).addTo(mapDay4);
+
+// Nav active state on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-inner a');
+window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(sec => {
+        const top = window.scrollY;
+        const offset = sec.offsetTop - 120;
+        const height = sec.offsetHeight;
+        if (top >= offset && top < offset + height) current = sec.getAttribute('id');
+    });
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+    });
+});
+</script>
+</body>
+</html>
